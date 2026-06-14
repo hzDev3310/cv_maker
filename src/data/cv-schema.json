@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/cv.schema.json",
+  "title": "Bilingual CV Schema",
+  "description": "Generic CV schema supporting EN/FR localization. The CV is composed of an ordered list of sections; each section has a localized title and a list of items. Each item declares a 'type' that determines its shape (work experience, project, education, skill group, language, or plain text).",
+  "type": "object",
+  "required": ["meta", "sections"],
+  "additionalProperties": false,
+  "properties": {
+    "jobDescription": {
+      "type": "string",
+      "description": "Target job description pasted by the user for ATS tailoring and scoring."
+    },
+    "locales": {
+      "type": "array",
+      "description": "Supported locale codes, in order of preference.",
+      "items": { "type": "string" },
+      "default": ["en", "fr"],
+      "minItems": 1
+    },
+    "meta": { "$ref": "#/$defs/meta" },
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/section" },
+      "minItems": 1
+    }
+  },
+
+  "$defs": {
+
+    "localizedString": {
+      "type": "object",
+      "description": "A string translated per locale. Keys must match entries in 'locales'.",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string" },
+      "properties": {
+        "en": { "type": "string" },
+        "fr": { "type": "string" }
+      }
+    },
+
+    "localizedStringArray": {
+      "type": "object",
+      "description": "An array of strings (e.g. bullet points), translated per locale. Arrays for each locale must have the same length and order.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "properties": {
+        "en": { "type": "array", "items": { "type": "string" } },
+        "fr": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "dateRange": {
+      "type": "object",
+      "required": ["start"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "type": "string",
+          "description": "Start date or year, e.g. '2024' or '2024-01'."
+        },
+        "end": {
+          "type": "string",
+          "description": "End date/year, or 'present' / 'en cours' style flag handled via isOngoing.",
+          "default": null
+        },
+        "isOngoing": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if the role/program is currently active (renders as 'Present' / 'Présent')."
+        }
+      }
+    },
+
+    "link": {
+      "type": "object",
+      "required": ["label", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "e.g. 'linkedin', 'github', 'portfolio'. Not localized; used as an identifier/icon key."
+        },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+
+    "meta": {
+      "type": "object",
+      "required": ["name", "jobTitle", "contact"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name (not localized)."
+        },
+        "jobTitle": { "$ref": "#/$defs/localizedString" },
+        "contact": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "phone": { "type": "string" },
+            "location": { "$ref": "#/$defs/localizedString" },
+            "links": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/link" }
+            }
+          }
+        }
+      }
+    },
+
+    "section": {
+      "type": "object",
+      "required": ["id", "title", "type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable machine-readable identifier, e.g. 'summary', 'work_experience'."
+        },
+        "title": { "$ref": "#/$defs/localizedString" },
+        "type": {
+          "type": "string",
+          "description": "Declares which item shape this section's 'items' array uses.",
+          "enum": [
+            "text",
+            "experience",
+            "project",
+            "education",
+            "skills",
+            "languages"
+          ]
+        },
+        "visible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Toggle to hide a section without deleting its data."
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/textItem" },
+              { "$ref": "#/$defs/experienceItem" },
+              { "$ref": "#/$defs/projectItem" },
+              { "$ref": "#/$defs/educationItem" },
+              { "$ref": "#/$defs/skillGroupItem" },
+              { "$ref": "#/$defs/languageItem" }
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "text" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/textItem" } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "experience" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/experienceItem" } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "project" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/projectItem" } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "education" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/educationItem" } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "skills" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/skillGroupItem" } } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "languages" } } },
+          "then": { "properties": { "items": { "items": { "$ref": "#/$defs/languageItem" } } } }
+        }
+      ]
+    },
+
+    "textItem": {
+      "type": "object",
+      "description": "Free-form paragraph(s), e.g. a professional summary.",
+      "required": ["type", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "text" },
+        "content": { "$ref": "#/$defs/localizedString" }
+      }
+    },
+
+    "experienceItem": {
+      "type": "object",
+      "description": "A work experience / internship entry.",
+      "required": ["type", "role", "organization", "dateRange", "bullets"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "experience" },
+        "role": { "$ref": "#/$defs/localizedString" },
+        "organization": {
+          "type": "string",
+          "description": "Company/organization name (not localized)."
+        },
+        "location": { "$ref": "#/$defs/localizedString" },
+        "dateRange": { "$ref": "#/$defs/dateRange" },
+        "bullets": { "$ref": "#/$defs/localizedStringArray" },
+        "tags": {
+          "type": "array",
+          "description": "Optional tech/skill tags shown alongside the entry.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "projectItem": {
+      "type": "object",
+      "description": "A personal/professional project entry.",
+      "required": ["type", "name", "bullets"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "project" },
+        "name": {
+          "type": "string",
+          "description": "Project name. May include non-Latin script; not localized unless the project itself has a translated title (use 'nameLocalized' instead)."
+        },
+        "nameLocalized": {
+          "$ref": "#/$defs/localizedString",
+          "description": "Optional localized display name, used if 'name' should differ per language."
+        },
+        "subtitle": { "$ref": "#/$defs/localizedString" },
+        "dateRange": { "$ref": "#/$defs/dateRange" },
+        "bullets": { "$ref": "#/$defs/localizedStringArray" },
+        "techStack": {
+          "type": "array",
+          "description": "Technology stack list (not localized).",
+          "items": { "type": "string" }
+        },
+        "links": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/link" }
+        }
+      }
+    },
+
+    "educationItem": {
+      "type": "object",
+      "description": "A degree/diploma entry.",
+      "required": ["type", "degree", "institution", "dateRange"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "education" },
+        "degree": { "$ref": "#/$defs/localizedString" },
+        "institution": {
+          "type": "string",
+          "description": "Institution name (not localized)."
+        },
+        "location": { "$ref": "#/$defs/localizedString" },
+        "dateRange": { "$ref": "#/$defs/dateRange" },
+        "notes": { "$ref": "#/$defs/localizedStringArray" }
+      }
+    },
+
+    "skillGroupItem": {
+      "type": "object",
+      "description": "A category of skills, e.g. 'Frontend', 'DevOps & Infrastructure'.",
+      "required": ["type", "category", "skills"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "skills" },
+        "category": { "$ref": "#/$defs/localizedString" },
+        "skills": {
+          "type": "array",
+          "description": "Skill names (not localized; technology names are language-agnostic).",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+
+    "languageItem": {
+      "type": "object",
+      "description": "A spoken/written language with an optional proficiency level.",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "languages" },
+        "name": { "$ref": "#/$defs/localizedString" },
+        "level": {
+          "$ref": "#/$defs/localizedString",
+          "description": "e.g. {'en': 'Native', 'fr': 'Langue maternelle'} or CEFR level like 'B2'."
+        }
+      }
+    }
+  }
+}

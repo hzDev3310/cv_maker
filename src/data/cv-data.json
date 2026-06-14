@@ -1,0 +1,288 @@
+{
+  "$schema": "./cv-schema.json",
+  "locales": ["en", "fr"],
+  "meta": {
+    "name": "Hamza SAYARI",
+    "jobTitle": {
+      "en": "Full-Stack Developer & Engineering Student",
+      "fr": "Développeur Full-Stack & Étudiant Ingénieur"
+    },
+    "contact": {
+      "email": "hamzasayari2024@gmail.com",
+      "phone": "+216 21726621",
+      "location": {
+        "en": "Tunisia",
+        "fr": "Tunisie"
+      },
+      "links": [
+        { "label": "linkedin", "url": "https://linkedin.com/in/hamza-sayari-2b04a7287/" },
+        { "label": "github", "url": "https://github.com/hzDev3310" },
+        { "label": "portfolio", "url": "https://hamza-sayari-portfolio.vercel.app" }
+      ]
+    }
+  },
+  "sections": [
+    {
+      "id": "summary",
+      "title": { "en": "Summary", "fr": "Profil" },
+      "type": "text",
+      "items": [
+        {
+          "type": "text",
+          "content": {
+            "en": "Full-Stack Developer and IT Engineering student with 2+ years of experience building high-performance web and mobile platforms. Skilled in Laravel, Node.js, and React with a proven track record in workflow automation, DevOps, and SaaS system architectures.",
+            "fr": "Développeur Full-Stack et étudiant ingénieur en informatique avec plus de 2 ans d'expérience dans la conception de plateformes web et mobiles performantes. Compétent en Laravel, Node.js et React, avec une expertise avérée en automatisation des processus, DevOps et architectures de systèmes SaaS."
+          }
+        }
+      ]
+    },
+    {
+      "id": "work_experience",
+      "title": { "en": "Work Experience", "fr": "Expérience Professionnelle" },
+      "type": "experience",
+      "items": [
+        {
+          "type": "experience",
+          "role": {
+            "en": "Full-Stack Software Engineer",
+            "fr": "Ingénieur Logiciel Full-Stack"
+          },
+          "organization": "Webmedia Tunisia",
+          "location": { "en": "Tunisia", "fr": "Tunisie" },
+          "dateRange": { "start": "2024", "isOngoing": true },
+          "bullets": {
+            "en": [
+              "Architected an ERP ecosystem managing internal HR workflows, attendance tracking, and customer invoicing.",
+              "Containerized web applications using Docker and built automated CI/CD pipelines via GitHub Actions.",
+              "Developed cross-platform mobile apps with React Native and real-time syncing via WebSockets.",
+              "Integrated secure payment frameworks using Stripe API with asynchronous webhook fallbacks.",
+              "Optimized communication workflows by building custom SMTP and WhatsApp API middleware integrations."
+            ],
+            "fr": [
+              "Conception d'un écosystème ERP gérant les processus RH internes, le suivi de présence et la facturation client.",
+              "Conteneurisation des applications web avec Docker et mise en place de pipelines CI/CD automatisés via GitHub Actions.",
+              "Développement d'applications mobiles multiplateformes avec React Native et synchronisation en temps réel via WebSockets.",
+              "Intégration de frameworks de paiement sécurisés via l'API Stripe avec gestion asynchrone des webhooks.",
+              "Optimisation des flux de communication via des intégrations middleware SMTP et API WhatsApp personnalisées."
+            ]
+          },
+          "tags": ["Laravel", "React Native", "Docker", "GitHub Actions", "Stripe", "WebSockets"]
+        },
+        {
+          "type": "experience",
+          "role": {
+            "en": "Full-Stack Developer Intern (Stage PFE)",
+            "fr": "Développeur Full-Stack Stagiaire (Stage PFE)"
+          },
+          "organization": "STE System Log Consulting",
+          "location": { "en": "Tunisia", "fr": "Tunisie" },
+          "dateRange": { "start": "2023", "end": "2023" },
+          "bullets": {
+            "en": [
+              "Built responsive web and mobile environments using React JS and Node.js with polished UX layouts.",
+              "Hardened application security barriers by implementing secure stateless JWT-based authentication.",
+              "Authored lightweight real-time chat delivery modules utilizing standard WebSocket configurations."
+            ],
+            "fr": [
+              "Conception d'environnements web et mobiles responsives avec React JS et Node.js et des interfaces UX soignées.",
+              "Renforcement de la sécurité applicative via une authentification JWT sans état (stateless).",
+              "Développement de modules de messagerie instantanée légers basés sur des configurations WebSocket standard."
+            ]
+          },
+          "tags": ["React", "Node.js", "JWT", "WebSockets"]
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "title": { "en": "Projects", "fr": "Projets" },
+      "type": "project",
+      "items": [
+        {
+          "type": "project",
+          "name": "الشركة التونسية للتنقيب - Recruitment & Audit Platform",
+          "nameLocalized": {
+            "en": "STIR - Recruitment & Audit Platform",
+            "fr": "STIR - Plateforme de Recrutement et d'Audit"
+          },
+          "bullets": {
+            "en": [
+              "Developed a web platform for managing job postings, recruitment workflows, and digital compliance auditing.",
+              "Built an advanced dynamic form builder allowing administrators to create custom evaluation checklists."
+            ],
+            "fr": [
+              "Développement d'une plateforme web pour la gestion des offres d'emploi, des processus de recrutement et de l'audit de conformité numérique.",
+              "Création d'un générateur de formulaires dynamiques avancé permettant aux administrateurs de créer des listes d'évaluation personnalisées."
+            ]
+          },
+          "techStack": ["PHP", "HTML5", "CSS3", "JavaScript", "Laravel", "Bootstrap", "MySQL"]
+        },
+        {
+          "type": "project",
+          "name": "Multi-Tenant SaaS Management Platform",
+          "bullets": {
+            "en": [
+              "Engineered a Software-as-a-Service (SaaS) portal supporting subscription tiers for internal tools like HR and mailing engines.",
+              "Implemented flexible subscription billing models, account tiering management, and database multi-tenancy."
+            ],
+            "fr": [
+              "Conception d'un portail SaaS prenant en charge plusieurs niveaux d'abonnement pour des outils internes (RH, moteur d'emailing, etc.).",
+              "Mise en place de modèles de facturation d'abonnement flexibles, gestion des paliers de comptes et multi-tenancy au niveau base de données."
+            ]
+          },
+          "techStack": ["Laravel", "React JS", "MySQL", "Docker", "GitHub Actions CI/CD"]
+        },
+        {
+          "type": "project",
+          "name": "Egidya - Social-Commerce Marketplace Platform",
+          "nameLocalized": {
+            "en": "Egidya - Social-Commerce Marketplace Platform",
+            "fr": "Egidya - Plateforme de Marketplace Social-Commerce"
+          },
+          "bullets": {
+            "en": [
+              "Developed a flexible multi-tenant marketplace featuring a React Native mobile app and a React web admin dashboard.",
+              "Successfully managed end-to-end production deployment to Apple App Store and Google Play Store.",
+              "Designed an automated multi-tier financial routing algorithm for splitting transaction revenues securely."
+            ],
+            "fr": [
+              "Développement d'une marketplace multi-tenant incluant une application mobile React Native et un tableau de bord d'administration React.",
+              "Gestion complète du déploiement en production sur l'Apple App Store et le Google Play Store.",
+              "Conception d'un algorithme automatisé de répartition financière multi-niveaux pour le partage sécurisé des revenus de transaction."
+            ]
+          },
+          "techStack": ["React Native", "React JS", "Node.js", "Express.js", "MySQL", "Stripe Connect", "WebSockets", "Docker"]
+        },
+        {
+          "type": "project",
+          "name": "Getaria - Real-Time Geolocation Fleet Logistics Tracker",
+          "nameLocalized": {
+            "en": "Getaria - Real-Time Geolocation Fleet Logistics Tracker",
+            "fr": "Getaria - Système de Suivi de Flotte par Géolocalisation en Temps Réel"
+          },
+          "bullets": {
+            "en": [
+              "Developed a vehicle logistics tracker to monitor real-time positions across distributed facility networks.",
+              "Integrated client-side streams with Google Maps API for path calculations and live ETA estimations."
+            ],
+            "fr": [
+              "Développement d'un système de suivi logistique de véhicules permettant le suivi en temps réel sur des réseaux de sites distribués.",
+              "Intégration de flux côté client avec l'API Google Maps pour le calcul d'itinéraires et l'estimation des temps d'arrivée en direct."
+            ]
+          },
+          "techStack": ["PHP", "HTML5", "JavaScript", "Google Maps API", "AJAX", "MySQL"]
+        },
+        {
+          "type": "project",
+          "name": "Web Media International - Gestion Internal ERP Portal",
+          "nameLocalized": {
+            "en": "Web Media International - Internal ERP Management Portal",
+            "fr": "Web Media International - Portail de Gestion ERP Interne"
+          },
+          "bullets": {
+            "en": [
+              "Designed a centralized internal ERP platform to unify corporate administration, financial management, and HR operational tracks.",
+              "Created modules to monitor active project milestones, account maintenance logs, and contract renewal alerts."
+            ],
+            "fr": [
+              "Conception d'une plateforme ERP interne centralisée unifiant l'administration de l'entreprise, la gestion financière et le suivi RH.",
+              "Création de modules de suivi des jalons de projets, des journaux de maintenance des comptes et des alertes de renouvellement de contrats."
+            ]
+          },
+          "techStack": ["Laravel", "React JS", "MySQL", "Bootstrap"]
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "title": { "en": "Education", "fr": "Formation" },
+      "type": "education",
+      "items": [
+        {
+          "type": "education",
+          "degree": {
+            "en": "Engineering Degree in Software Engineering",
+            "fr": "Diplôme d'Ingénieur en Génie Logiciel"
+          },
+          "institution": "SUPTech University",
+          "dateRange": { "start": "2024", "isOngoing": true }
+        },
+        {
+          "type": "education",
+          "degree": {
+            "en": "Bachelor's Degree in Computer Science",
+            "fr": "Licence en Informatique"
+          },
+          "institution": "ISMAIK",
+          "dateRange": { "start": "2021", "end": "2024" }
+        },
+        {
+          "type": "education",
+          "degree": {
+            "en": "Baccalaureate in Mathematics",
+            "fr": "Baccalauréat, section Mathématiques"
+          },
+          "institution": "Ibn Rachik Kairouan",
+          "dateRange": { "start": "2020", "end": "2021" }
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "title": { "en": "Skills", "fr": "Compétences" },
+      "type": "skills",
+      "items": [
+        {
+          "type": "skills",
+          "category": { "en": "Frontend", "fr": "Frontend" },
+          "skills": ["HTML5", "CSS3", "JavaScript (ES6+)", "TypeScript", "React JS", "Next JS", "Tailwind CSS", "Bootstrap"]
+        },
+        {
+          "type": "skills",
+          "category": { "en": "Backend & Core", "fr": "Backend & Cœur" },
+          "skills": ["Node.js", "Express.js", "Laravel (PHP)", "C++", "RESTful APIs"]
+        },
+        {
+          "type": "skills",
+          "category": { "en": "Mobile Ecosystems", "fr": "Écosystèmes Mobiles" },
+          "skills": ["React Native", "Cross-platform deployment"]
+        },
+        {
+          "type": "skills",
+          "category": { "en": "Databases & Storage", "fr": "Bases de Données & Stockage" },
+          "skills": ["MySQL (Relational Design)", "MongoDB (NoSQL)"]
+        },
+        {
+          "type": "skills",
+          "category": { "en": "DevOps & Infrastructure", "fr": "DevOps & Infrastructure" },
+          "skills": ["Docker", "CI/CD pipelines", "GitHub Actions", "Linux System Architecture", "Git Version Control"]
+        },
+        {
+          "type": "skills",
+          "category": { "en": "Protocols & Third-Party Integrations", "fr": "Protocoles & Intégrations Tierces" },
+          "skills": ["Stripe Connect", "WebSockets", "Real-time telemetry sync", "SMTP Mail relays", "WhatsApp Business API", "Google Maps API"]
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "title": { "en": "Languages", "fr": "Langues" },
+      "type": "languages",
+      "items": [
+        {
+          "type": "languages",
+          "name": { "en": "Arabic", "fr": "Arabe" },
+          "level": { "en": "Native", "fr": "Langue maternelle" }
+        },
+        {
+          "type": "languages",
+          "name": { "en": "French", "fr": "Français" }
+        },
+        {
+          "type": "languages",
+          "name": { "en": "English", "fr": "Anglais" }
+        }
+      ]
+    }
+  ]
+}
