@@ -1,24 +1,42 @@
-export default function updateField(obj, path, value) {
-  const keys = path.split('.');
-  const key = keys[0];
+function isIndex(segment) {
+  return String(Number(segment)) === segment;
+}
+
+function cloneContainer(container, nextKey) {
+  if (Array.isArray(container)) return [...container];
+  if (container && typeof container === 'object') return { ...container };
+  return isIndex(nextKey) ? [] : {};
+}
+
+function setDeep(container, keys, value) {
+  const [key, ...rest] = keys;
   if (keys.length === 1) {
-    return { ...obj, [key]: value };
-  }
-  const rest = keys.slice(1).join('.');
-  const current = obj[key];
-  if (Array.isArray(current)) {
-    const idx = parseInt(rest.split('.')[0], 10);
-    const rest2 = rest.split('.').slice(1).join('.');
-    const updated = [...current];
-    if (rest2) {
-      updated[idx] = updateField(current[idx], rest2, value);
-    } else {
-      updated[idx] = value;
+    if (Array.isArray(container)) {
+      const next = [...container];
+      next[Number(key)] = value;
+      return next;
     }
-    return { ...obj, [key]: updated };
+    return { ...(container || {}), [key]: value };
   }
-  if (current && typeof current === 'object') {
-    return { ...obj, [key]: updateField(current, rest, value) };
+
+  const nextContainer = cloneContainer(
+    Array.isArray(container) ? container[Number(key)] : container?.[key],
+    rest[0],
+  );
+  const updated = setDeep(nextContainer, rest, value);
+
+  if (Array.isArray(container)) {
+    const next = [...container];
+    next[Number(key)] = updated;
+    return next;
   }
-  return { ...obj, [key]: value };
+
+  return { ...(container || {}), [key]: updated };
+}
+
+export default function updateField(obj, path, value) {
+  if (!path) return value;
+  const keys = path.split('.').filter(Boolean);
+  if (keys.length === 0) return value;
+  return setDeep(obj, keys, value);
 }

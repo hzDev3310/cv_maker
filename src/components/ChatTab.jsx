@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function msgClasses(role, type) {
   if (type === "success")
@@ -189,6 +190,18 @@ export default forwardRef(function ChatTab(
             </div>
           );
         })}
+        {isProcessing && (
+          <div className="space-y-3 max-w-[85%] self-start w-full">
+            <div className="flex items-start gap-md">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 bg-secondary-container" />
+              <div className="flex-1 rounded-xl rounded-tl-none p-md bg-surface-container-high space-y-3">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-11/12" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

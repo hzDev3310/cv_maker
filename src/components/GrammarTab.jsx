@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { runAiAction, classifyError, validateCvShape } from "../utils/groqClient";
+import { runAiAction, classifyError, validateCvShape, getActiveProvider } from "../utils/groqClient";
 import { Button } from "@/components/ui/button";
+import { mergeAiPatch } from "../utils/aiPatch";
+import { getProvider } from "../utils/aiProviders";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function GrammarTab({
   cvData,
@@ -10,13 +13,17 @@ export default function GrammarTab({
   hasKey,
   setActionError,
   setShowSettings,
+  responses = [],
+  pushSectionResponse,
 }) {
   const sections = cvData?.sections || [];
+  const provider = getProvider(getActiveProvider());
   const [selectedSection, setSelectedSection] = useState("entire");
   const [selectedItem, setSelectedItem] = useState("");
   const [loading, setLoading] = useState(false);
   const [issues, setIssues] = useState(null);
   const [fixed, setFixed] = useState(false);
+  const responseItems = responses;
 
   const buildScopeJson = () => {
     if (!selectedSection || selectedSection === "entire") {
@@ -33,6 +40,7 @@ export default function GrammarTab({
   const handleCheckGrammar = async () => {
     if (!hasKey) {
       setActionError("MISSING_KEY");
+      pushSectionResponse?.("grammar", "Add your AI key in Settings to use this feature.", "error");
       return;
     }
     setLoading(true);
@@ -59,9 +67,14 @@ If no issues found, set hasIssues to false and issues to an empty array.`;
 
     if (result.ok) {
       setIssues(result.data.issues || []);
+      const message = result.data.issues?.length
+        ? `Grammar check found ${result.data.issues.length} issue(s).`
+        : "No grammar issues found in the selected scope.";
+      pushSectionResponse?.("grammar", message, "success");
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, provider.label);
       setActionError(classified.message);
+      pushSectionResponse?.("grammar", classified.message, "error");
     }
     setLoading(false);
   };
@@ -69,34 +82,43 @@ If no issues found, set hasIssues to false and issues to an empty array.`;
   const handleFixGrammar = async () => {
     if (!hasKey) {
       setActionError("MISSING_KEY");
+      pushSectionResponse?.("grammar", "Add your AI key in Settings to use this feature.", "error");
       return;
     }
     setLoading(true);
 
     const scope = buildScopeJson();
-    const systemPrompt = `You are a grammar and spelling expert for CVs. Fix all grammar, spelling, punctuation, and tone issues in the JSON below for language "${locale}". Return ONLY the corrected raw JSON with the exact same structure — no markdown fences, no explanation. Preserve all ids, dates, org names, and factual content exactly.`;
+    const systemPrompt = `You are a grammar and spelling expert for CVs. Fix all grammar, spelling, punctuation, and tone issues in the JSON below for language "${locale}". Return ONLY a minimal JSON patch containing the changed fields and items needed to apply the corrections. Do not repeat unchanged parts. Preserve all ids, dates, org names, and factual content exactly. No markdown fences, no explanation.`;
 
     const result = await runAiAction({
       systemPrompt,
       userPrompt: scope.json,
-      temperature: 0.2,
-      validate: scope.type === "entire" ? (p) => validateCvShape(cvData, p) : undefined,
+      temperature: 0,
+      retries: 0,
     });
 
     if (result.ok) {
       pushUndo();
       if (scope.type === "entire") {
-        onFieldChange("", { ...cvData, ...result.data });
+        onFieldChange("", mergeAiPatch(cvData, result.data));
       } else if (scope.type === "section") {
-        onFieldChange(`sections.${scope.index}`, result.data);
+        onFieldChange(
+          `sections.${scope.index}`,
+          mergeAiPatch(sections[scope.index] || {}, result.data),
+        );
       } else {
-        onFieldChange(`sections.${scope.index}.items.${scope.itemIdx}`, result.data);
+        onFieldChange(
+          `sections.${scope.index}.items.${scope.itemIdx}`,
+          mergeAiPatch(sections[scope.index]?.items?.[scope.itemIdx] || {}, result.data),
+        );
       }
       setFixed(true);
       setIssues(null);
+      pushSectionResponse?.("grammar", "Grammar fixes applied successfully.", "success");
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, provider.label);
       setActionError(classified.message);
+      pushSectionResponse?.("grammar", classified.message, "error");
     }
     setLoading(false);
   };
@@ -167,6 +189,18 @@ If no issues found, set hasIssues to false and issues to an empty array.`;
             {loading ? "Working..." : "Fix Grammar"}
           </Button>
         </div>
+
+        {loading && (
+          <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4 space-y-3">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-5/6" />
+            <div className="flex gap-2 pt-2">
+              <Skeleton className="h-8 w-24 rounded-xl" />
+              <Skeleton className="h-8 w-24 rounded-xl" />
+            </div>
+          </div>
+        )}
       </div>
 
       {!issues && !fixed && !loading && (
@@ -228,6 +262,28 @@ If no issues found, set hasIssues to false and issues to an empty array.`;
             <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             Grammar fixes applied successfully.
           </p>
+        </div>
+      )}
+
+      {responseItems.length > 0 && (
+        <div className="rounded-xl border border-outline-variant bg-surface p-5 space-y-3">
+          <h5 className="text-sm font-bold text-on-surface-variant">
+            Grammar Responses
+          </h5>
+          <div className="space-y-2">
+            {responseItems.map((item, i) => (
+              <div
+                key={i}
+                className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
+                  item.type === "error"
+                    ? "border-error/20 bg-error-container text-on-error-container"
+                    : "border-outline-variant bg-surface-container-low text-on-surface"
+                }`}
+              >
+                {item.text}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

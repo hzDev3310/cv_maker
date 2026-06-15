@@ -1,6 +1,7 @@
 import ScoreGauge from "./ScoreGauge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatTime(ts) {
   const d = new Date(ts);
@@ -9,6 +10,37 @@ function formatTime(ts) {
 }
 
 function AtsDisplay({ atsResult, onRecalc, onOptimize, loading, jobDesc }) {
+  if (loading && !atsResult) {
+    return (
+      <div className="rounded-xl border border-outline-variant bg-surface p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-[140px] h-[140px] rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/5" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-10 w-36 rounded-xl" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-28 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-28" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-28 rounded-full" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-6 w-32 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+        </div>
+      </div>
+    );
+  }
+
   if (!atsResult) return null;
   const isStale = atsResult._stale;
   return (
@@ -115,6 +147,7 @@ export default function JobTab({
   handleAtsOptimize,
   atsLoading,
   atsResult,
+  responses = [],
 }) {
   return (
     <div className="ai-job space-y-4">
@@ -178,6 +211,28 @@ export default function JobTab({
           jobDesc={jobDesc}
         />
       </div>
+
+      {responses.length > 0 && (
+        <div className="rounded-xl border border-outline-variant bg-surface p-5 space-y-3">
+          <h5 className="text-sm font-bold text-on-surface-variant">
+            Job Responses
+          </h5>
+          <div className="space-y-2">
+            {responses.map((item, i) => (
+              <div
+                key={i}
+                className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
+                  item.type === "error"
+                    ? "border-error/20 bg-error-container text-on-error-container"
+                    : "border-outline-variant bg-surface-container-low text-on-surface"
+                }`}
+              >
+                {item.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { PieChart, Pie, Cell } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ScoreGauge from "./ScoreGauge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatTime(ts) {
   const d = new Date(ts);
@@ -198,6 +199,7 @@ export default function AtsTab({
   handleGeneralAtsCheck,
   generalAtsLoading,
   generalAtsResult,
+  responses = [],
 }) {
   return (
     <div className="ai-ats">
@@ -216,7 +218,56 @@ export default function AtsTab({
       >
         {generalAtsLoading ? "Checking..." : "Check ATS Compatibility"}
       </Button>
+      {generalAtsLoading && !generalAtsResult && (
+        <div className="rounded-xl border border-outline-variant bg-surface p-5 space-y-5">
+          <div className="grid grid-cols-[auto_1fr] gap-5 items-center">
+            <Skeleton className="w-[140px] h-[140px] rounded-full" />
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+          </div>
+          <Skeleton className="h-4 w-40" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-6 w-28 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-36" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-32 rounded-full" />
+            <Skeleton className="h-6 w-28 rounded-full" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+        </div>
+      )}
       <GeneralAtsDisplay result={generalAtsResult} />
+
+      {responses.length > 0 && (
+        <div className="mt-5 rounded-xl border border-outline-variant bg-surface p-5 space-y-3">
+          <h5 className="text-sm font-bold text-on-surface-variant">
+            ATS Responses
+          </h5>
+          <div className="space-y-2">
+            {responses.map((item, i) => (
+              <div
+                key={i}
+                className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
+                  item.type === "error"
+                    ? "border-error/20 bg-error-container text-on-error-container"
+                    : "border-outline-variant bg-surface-container-low text-on-surface"
+                }`}
+              >
+                {item.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

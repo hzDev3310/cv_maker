@@ -1,6 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import seedData from './data/cv-data.json';
-import { loadFromStorage, saveToStorage, clearStorage, getHistory, addToHistory, loadFromHistory, deleteFromHistory } from './utils/storage';
+import {
+  loadFromStorage,
+  saveToStorage,
+  clearStorage,
+  getHistory,
+  addToHistory,
+  loadFromHistory,
+  deleteFromHistory,
+  loadAtsResult,
+  loadGeneralAtsResult,
+} from './utils/storage';
+import { saveBackupFile, readBackupFile, applyBackupPayload } from './utils/backup';
 import updateField from './utils/updateField';
 import FormPanel from './components/FormPanel/FormPanel';
 import LanguageToggle from './components/FormPanel/LanguageToggle';
@@ -14,10 +25,26 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import './App.css';
 
-function HistoryTab({ history, onLoad, onDelete }) {
+function HistoryTab({ history, onLoad, onDelete, onExportBackup, onImportBackup, backupStatus }) {
   return (
     <div className="p-6 h-full">
-      <h2 className="text-lg font-bold text-on-surface mb-4">Snapshot History</h2>
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-on-surface">Snapshot History</h2>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onImportBackup}>Import Backup</Button>
+            <Button variant="default" size="sm" onClick={onExportBackup}>Export Backup</Button>
+          </div>
+        </div>
+        <p className="text-xs text-on-surface-variant">
+          Backup includes CV data, history, and AI settings, but excludes API keys.
+        </p>
+        {backupStatus && (
+          <div className="text-xs rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-on-surface-variant">
+            {backupStatus}
+          </div>
+        )}
+      </div>
       {history.length === 0 && (
         <p className="text-sm text-on-surface-variant text-center mt-6">No snapshots saved yet. Use the "Save" button in the navbar to save one.</p>
       )}
@@ -49,12 +76,16 @@ function formatDate(ts) {
 
 export default function App() {
   const [cvData, setCvData] = useState(() => loadFromStorage(seedData));
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
   const [locale, setLocale] = useState('en');
   const [lastSaved, setLastSaved] = useState(null);
   const [history, setHistory] = useState(() => getHistory());
   const [activeLeftTab, setActiveLeftTab] = useState('content');
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [backupStatus, setBackupStatus] = useState('');
   const saveTimer = useRef(null);
+  const backupFileInputRef = useRef(null);
 
   const debouncedSave = useCallback((data) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -66,12 +97,12 @@ export default function App() {
 
   const handleFieldChange = useCallback((path, value) => {
     setCvData((prev) => {
-      if (path === '') {
-        const next = value;
-        debouncedSave(next);
-        return next;
+      const next = path === '' ? value : updateField(prev, path, value);
+      if (JSON.stringify(next) === JSON.stringify(prev)) {
+        return prev;
       }
-      const next = updateField(prev, path, value);
+      setUndoStack((stack) => [...stack, prev].slice(-20));
+      setRedoStack([]);
       debouncedSave(next);
       return next;
     });
@@ -83,15 +114,43 @@ export default function App() {
       const [moved] = sections.splice(fromIndex, 1);
       sections.splice(toIndex, 0, moved);
       const next = { ...prev, sections };
+      setUndoStack((stack) => [...stack, prev].slice(-20));
+      setRedoStack([]);
       debouncedSave(next);
       return next;
     });
   }, [debouncedSave]);
 
+  const handleUndo = useCallback(() => {
+    setUndoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const restored = stack[stack.length - 1];
+      setRedoStack((future) => [cvData, ...future].slice(0, 20));
+      setCvData(restored);
+      debouncedSave(restored);
+      setLastSaved(Date.now());
+      return stack.slice(0, -1);
+    });
+  }, [cvData, debouncedSave]);
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const restored = stack[0];
+      setUndoStack((past) => [...past, cvData].slice(-20));
+      debouncedSave(restored);
+      setLastSaved(Date.now());
+      setCvData(restored);
+      return stack.slice(1);
+    });
+  }, [cvData, debouncedSave]);
+
   const handleReset = useCallback(() => {
     if (window.confirm('Reset to default data? This will clear your current edits.')) {
       clearStorage();
       setCvData(seedData);
+      setUndoStack([]);
+      setRedoStack([]);
       setLastSaved(null);
     }
   }, []);
@@ -106,6 +165,8 @@ export default function App() {
     const data = loadFromHistory(id);
     if (data) {
       setCvData(data);
+      setUndoStack([]);
+      setRedoStack([]);
       saveToStorage(data);
       setLastSaved(Date.now());
     }
@@ -115,6 +176,73 @@ export default function App() {
     deleteFromHistory(id);
     setHistory(getHistory());
   }, []);
+
+  const applyImportedBackupToState = useCallback(() => {
+    setCvData(loadFromStorage(seedData));
+    setHistory(getHistory());
+    setUndoStack([]);
+    setRedoStack([]);
+    setLastSaved(Date.now());
+  }, []);
+
+  const handleExportBackup = useCallback(async () => {
+    try {
+      const filename = await saveBackupFile();
+      setBackupStatus(`Backup exported as ${filename}.`);
+    } catch (error) {
+      setBackupStatus(error?.name === 'AbortError' ? 'Backup export canceled.' : 'Could not export backup.');
+    }
+  }, []);
+
+  const handleImportBackupFile = useCallback(async (file) => {
+    if (!file) return;
+    try {
+      const payload = await readBackupFile(file);
+      const ok = applyBackupPayload(payload);
+      if (!ok) {
+        setBackupStatus('The selected file is not a valid backup.');
+        return;
+      }
+      applyImportedBackupToState();
+      setBackupStatus(`Backup imported from ${file.name}.`);
+    } catch (error) {
+      setBackupStatus('Could not import backup.');
+    }
+  }, [applyImportedBackupToState]);
+
+  const handleImportBackup = useCallback(async () => {
+    if (window.showOpenFilePicker) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          multiple: false,
+          types: [
+            {
+              description: 'CV Builder backup',
+              accept: { 'application/json': ['.json'] },
+            },
+          ],
+        });
+        if (!handle) return;
+        const file = await handle.getFile();
+        await handleImportBackupFile(file);
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          setBackupStatus('Could not open backup file picker.');
+        }
+      }
+      return;
+    }
+
+    backupFileInputRef.current?.click();
+  }, [handleImportBackupFile]);
+
+  const handleBackupInputChange = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) {
+      await handleImportBackupFile(file);
+    }
+  }, [handleImportBackupFile]);
 
   const handleExportPDF = useCallback(async () => {
     const pages = document.querySelectorAll('.cv-page');
@@ -136,6 +264,36 @@ export default function App() {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    const isEditableTarget = (target) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName?.toLowerCase();
+      return (
+        target.isContentEditable ||
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select'
+      );
+    };
+
+    const onKeyDown = (e) => {
+      if (isEditableTarget(e.target)) return;
+      const key = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (undoStack.length > 0) handleUndo();
+      }
+      if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        if (redoStack.length > 0) handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleUndo, handleRedo, undoStack.length, redoStack.length]);
 
   return (
     <div className="app-root">
@@ -196,11 +354,14 @@ export default function App() {
               history={history}
               onLoad={handleLoadSnapshot}
               onDelete={handleDeleteSnapshot}
+              onExportBackup={handleExportBackup}
+              onImportBackup={handleImportBackup}
+              backupStatus={backupStatus}
             />
           </div>
 
           {/* AI tabs: Chat / Job Description / ATS */}
-          <div className={`left-pane ${['chat', 'job', 'ats'].includes(activeLeftTab) ? 'left-pane-visible' : 'left-pane-hidden'}`}>
+          <div className={`left-pane ${['chat', 'job', 'ats', 'grammar'].includes(activeLeftTab) ? 'left-pane-visible' : 'left-pane-hidden'}`}>
             <AIAssistantPanel
               cvData={cvData}
               locale={locale}
@@ -214,7 +375,14 @@ export default function App() {
           <div className="flex justify-end px-5 py-2.5 sticky top-0 z-10 bg-surface-dim">
             <LanguageToggle locales={cvData.locales || ['en', 'fr']} locale={locale} onChange={setLocale} />
           </div>
-          <PreviewPanel cvData={cvData} locale={locale} />
+          <PreviewPanel
+            cvData={cvData}
+            locale={locale}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={undoStack.length > 0}
+            canRedo={redoStack.length > 0}
+          />
         </div>
       </div>
 
@@ -224,6 +392,14 @@ export default function App() {
           onClose={() => setShowSaveModal(false)}
         />
       )}
+
+      <input
+        ref={backupFileInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={handleBackupInputChange}
+      />
     </div>
   );
 }

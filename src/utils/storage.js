@@ -1,6 +1,86 @@
+import { listProviders } from "./aiProviders";
+
 const STORAGE_KEY = 'cv-builder-data';
 const HISTORY_KEY = 'cv-builder-history';
 const MAX_HISTORY = 30;
+const ATS_KEY = 'cv-builder-ats-result';
+const GENERAL_ATS_KEY = 'cv-builder-general-ats-result';
+const ACTIVE_PROVIDER_KEY = 'cv-builder-ai-provider';
+const ACTIVE_MODEL_PREFIX = 'cv-builder-ai-model-';
+
+function readJsonValue(raw) {
+  if (raw == null) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function writeJsonValue(key, value) {
+  localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+}
+
+export function getBackupStorageKeys() {
+  return [
+    STORAGE_KEY,
+    HISTORY_KEY,
+    ATS_KEY,
+    GENERAL_ATS_KEY,
+    ACTIVE_PROVIDER_KEY,
+    ...listProviders().map((provider) => `${ACTIVE_MODEL_PREFIX}${provider.id}`),
+  ];
+}
+
+export function exportBackupPayload() {
+  const storage = {};
+  for (const key of getBackupStorageKeys()) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) {
+        storage[key] = readJsonValue(raw);
+      }
+    } catch {
+      // Skip keys that cannot be read.
+    }
+  }
+
+  return {
+    app: 'cv-builder',
+    version: 1,
+    createdAt: Date.now(),
+    storage,
+  };
+}
+
+export function restoreBackupPayload(payload) {
+  const storage = payload?.storage;
+  if (!storage || typeof storage !== 'object') return false;
+
+  const allowed = new Set(getBackupStorageKeys());
+  for (const key of allowed) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore removal failures.
+    }
+  }
+
+  for (const [key, value] of Object.entries(storage)) {
+    if (!allowed.has(key)) continue;
+    try {
+      writeJsonValue(key, value);
+    } catch {
+      // Skip values that cannot be saved.
+    }
+  }
+
+  return true;
+}
+
+export function exportBackupJson() {
+  return JSON.stringify(exportBackupPayload(), null, 2);
+}
 
 export function loadFromStorage(fallback) {
   try {
@@ -90,8 +170,6 @@ export function clearHistory() {
   localStorage.removeItem(HISTORY_KEY);
 }
 
-const ATS_KEY = 'cv-builder-ats-result';
-
 export function loadAtsResult() {
   try {
     const raw = localStorage.getItem(ATS_KEY);
@@ -110,8 +188,6 @@ export function saveAtsResult(result) {
 export function clearAtsResult() {
   localStorage.removeItem(ATS_KEY);
 }
-
-const GENERAL_ATS_KEY = 'cv-builder-general-ats-result';
 
 export function loadGeneralAtsResult() {
   try {

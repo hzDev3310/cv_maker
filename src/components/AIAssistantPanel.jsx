@@ -6,6 +6,7 @@ import {
   validateAtsResult,
   validateGeneralAtsResult,
   getApiKey,
+  getActiveProvider,
 } from "../utils/groqClient";
 import {
   loadAtsResult,
@@ -19,6 +20,8 @@ import ChatTab from "./ChatTab";
 import JobTab from "./JobTab";
 import AtsTab from "./AtsTab";
 import GrammarTab from "./GrammarTab";
+import { mergeAiPatch } from "../utils/aiPatch";
+import { getProvider } from "../utils/aiProviders";
 
 
 
@@ -43,10 +46,43 @@ export default function AIAssistantPanel({
   const [selectedItem, setSelectedItem] = useState("");
   const [undoStack, setUndoStack] = useState([]);
   const [actionError, setActionError] = useState(null);
+  const [sectionResponses, setSectionResponses] = useState({
+    grammar: [],
+    job: [],
+    ats: [],
+  });
   const messagesEndRef = useRef(null);
 
   const sections = cvData?.sections || [];
-  const hasKey = !!getApiKey();
+  const activeProvider = getProvider(getActiveProvider());
+  const hasKey = !!getApiKey(activeProvider.id);
+
+  const applyAiResult = useCallback(
+    (scopeType, scopeIndex, itemIndex, patch) => {
+      if (scopeType === "entire") {
+        const next = mergeAiPatch(cvData, patch);
+        onFieldChange("", next);
+        return JSON.stringify(next) !== JSON.stringify(cvData);
+      }
+      if (scopeType === "section") {
+        const current = sections[scopeIndex] || {};
+        const next = mergeAiPatch(current, patch);
+        onFieldChange(
+          `sections.${scopeIndex}`,
+          next,
+        );
+        return JSON.stringify(next) !== JSON.stringify(current);
+      }
+      const current = sections[scopeIndex]?.items?.[itemIndex] || {};
+      const next = mergeAiPatch(current, patch);
+      onFieldChange(
+        `sections.${scopeIndex}.items.${itemIndex}`,
+        next,
+      );
+      return JSON.stringify(next) !== JSON.stringify(current);
+    },
+    [cvData, onFieldChange, sections],
+  );
 
   const addMessage = useCallback((msg) => {
     setMessages((prev) => {
@@ -59,6 +95,13 @@ export default function AIAssistantPanel({
       )
         return prev;
       return [...prev, msg];
+    });
+  }, []);
+
+  const pushSectionResponse = useCallback((section, text, type = "success") => {
+    setSectionResponses((prev) => {
+      const next = [...(prev[section] || []), { text, type }];
+      return { ...prev, [section]: next.slice(-6) };
     });
   }, []);
 
@@ -173,25 +216,40 @@ export default function AIAssistantPanel({
       });
 
       if (result.ok) {
-        pushUndo();
-        if (scopeType === "entire") {
-          onFieldChange("", { ...cvData, ...result.data });
-        } else if (scopeType === "section") {
-          onFieldChange(`sections.${scopeIndex}`, result.data);
-        } else if (scopeType === "item") {
-          onFieldChange(
-            `sections.${scopeIndex}.items.${itemIndex}`,
-            result.data,
-          );
+        let changed = applyAiResult(scopeType, scopeIndex, itemIndex, result.data);
+
+        if (!changed) {
+          const retry = await runAiAction({
+            systemPrompt: `${buildScopePrompt(scopeType, scopeIndex, itemIndex)}\n\nThe previous answer made no visible change. Apply the user's request now, even if it contains typos, and return the revised JSON with the requested edits applied.`,
+            userPrompt: text.trim(),
+            validate:
+              scopeType === "entire"
+                ? (p) => validateCvShape(cvData, p)
+                : undefined,
+          });
+
+          if (retry.ok) {
+            changed = applyAiResult(scopeType, scopeIndex, itemIndex, retry.data);
+          }
         }
-        addMessage({
-          role: "assistant",
-          text: "Updated successfully.",
-          type: "success",
-          undo: true,
-        });
+
+        if (changed) {
+          pushUndo();
+          addMessage({
+            role: "assistant",
+            text: "Updated successfully.",
+            type: "success",
+            undo: true,
+          });
+        } else {
+          addMessage({
+            role: "assistant",
+            text: "I could not apply a visible change from that request. Try being more specific, or I can retry with a narrower scope.",
+            type: "error",
+          });
+        }
       } else {
-        const classified = classifyError(result.error);
+        const classified = classifyError(result.error, activeProvider.label);
         setActionError(
           result.error === "PARSE_FAILED" || result.raw
             ? { error: result.error, raw: result.raw }
@@ -215,6 +273,7 @@ export default function AIAssistantPanel({
       pushUndo,
       onFieldChange,
       addMessage,
+      applyAiResult,
     ],
   );
 
@@ -232,6 +291,10 @@ export default function AIAssistantPanel({
   const handleAtsScore = useCallback(async () => {
     const pf = preFlight(true);
     if (pf) {
+      pushSectionResponse("job", pf === "NO_JD"
+        ? "Please paste a job description first."
+        : "Add your AI key in Settings to use this feature.",
+        "error");
       setActionError(pf);
       return null;
     }
@@ -271,21 +334,24 @@ export default function AIAssistantPanel({
       setAtsResult(entry);
       saveAtsResult(entry);
       setAtsLoading(false);
+      pushSectionResponse("job", `ATS score updated to ${entry.score}/100.`, "success");
       return entry;
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, activeProvider.label);
       setActionError(
         result.raw ? { error: result.error, raw: result.raw } : result.error,
       );
       setAtsLoading(false);
+      pushSectionResponse("job", classified.message, "error");
       return null;
     }
-  }, [preFlight, jobDesc, cvData, locale]);
+  }, [preFlight, pushSectionResponse, jobDesc, cvData, locale, activeProvider.label]);
 
   // ---- General ATS Check ----
   const handleGeneralAtsCheck = useCallback(async () => {
     const pf = preFlight(false);
     if (pf) {
+      pushSectionResponse("ats", "Add your AI key in Settings to use this feature.", "error");
       setActionError(pf);
       return;
     }
@@ -344,19 +410,28 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
       setGeneralAtsResult(entry);
       saveGeneralAtsResult(entry);
       setGeneralAtsLoading(false);
+      pushSectionResponse("ats", `ATS compatibility score updated to ${entry.score}/100.`, "success");
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, activeProvider.label);
       setActionError(
         result.raw ? { error: result.error, raw: result.raw } : result.error,
       );
       setGeneralAtsLoading(false);
+      pushSectionResponse("ats", classified.message, "error");
     }
-  }, [preFlight, cvData, locale]);
+  }, [preFlight, pushSectionResponse, cvData, locale, activeProvider.label]);
 
   // ---- Tailor CV ----
   const handleTailor = useCallback(async () => {
     const pf = preFlight(true);
     if (pf) {
+      pushSectionResponse(
+        "job",
+        pf === "NO_JD"
+          ? "Please paste a job description first."
+          : "Add your AI key in Settings to use this feature.",
+        "error",
+      );
       setActionError(pf);
       return;
     }
@@ -377,7 +452,8 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
 
     if (result.ok) {
       pushUndo();
-      onFieldChange("", { ...cvData, ...result.data });
+      onFieldChange("", mergeAiPatch(cvData, result.data));
+      pushSectionResponse("job", "CV tailored to the job description.", "success");
       addMessage({
         role: "assistant",
         text: "CV tailored to job description — click Undo to revert.",
@@ -385,10 +461,11 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
         undo: true,
       });
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, activeProvider.label);
       setActionError(
         result.raw ? { error: result.error, raw: result.raw } : result.error,
       );
+      pushSectionResponse("job", classified.message, "error");
       addMessage({
         role: "assistant",
         text: classified.message,
@@ -396,12 +473,13 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
       });
     }
     setProcessing(false);
-  }, [preFlight, jobDesc, cvData, locale, pushUndo, onFieldChange, addMessage]);
+  }, [preFlight, pushSectionResponse, jobDesc, cvData, locale, pushUndo, onFieldChange, addMessage, activeProvider.label]);
 
   // ---- ATS Optimize ----
   const handleAtsOptimize = useCallback(async () => {
     const pf = preFlight(false);
     if (pf) {
+      pushSectionResponse("job", "Add your AI key in Settings to use this feature.", "error");
       setActionError(pf);
       return;
     }
@@ -425,15 +503,17 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
 
     if (result.ok) {
       pushUndo();
-      onFieldChange("", { ...cvData, ...result.data });
+      onFieldChange("", mergeAiPatch(cvData, result.data));
+      pushSectionResponse("job", "ATS optimization applied successfully.", "success");
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, activeProvider.label);
       setActionError(
         result.raw ? { error: result.error, raw: result.raw } : result.error,
       );
+      pushSectionResponse("job", classified.message, "error");
     }
     setProcessing(false);
-  }, [preFlight, cvData, locale, generalAtsResult, pushUndo, onFieldChange]);
+  }, [preFlight, pushSectionResponse, cvData, locale, generalAtsResult, pushUndo, onFieldChange, activeProvider.label]);
 
   // ---- Enhance Wording ----
   const handleEnhanceWording = useCallback(async () => {
@@ -470,22 +550,38 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
     });
 
     if (result.ok) {
-      pushUndo();
-      if (scopeType === "entire") {
-        onFieldChange("", { ...cvData, ...result.data });
-      } else if (scopeType === "section") {
-        onFieldChange(`sections.${scopeIndex}`, result.data);
-      } else {
-        onFieldChange(`sections.${scopeIndex}.items.${itemIndex}`, result.data);
+      let changed = applyAiResult(scopeType, scopeIndex, itemIndex, result.data);
+      if (!changed) {
+        const retry = await runAiAction({
+          systemPrompt: `${systemPrompt}\n\nThe previous answer made no visible change. Apply the user's request now and return the revised JSON with the requested edits applied.`,
+          userPrompt: prompt,
+          temperature: 0.3,
+          retries: 1,
+          validate:
+            scopeType === "entire" ? (p) => validateCvShape(cvData, p) : undefined,
+        });
+        if (retry.ok) {
+          changed = applyAiResult(scopeType, scopeIndex, itemIndex, retry.data);
+        }
       }
-      addMessage({
-        role: "assistant",
-        text: "Wording enhanced.",
-        type: "success",
-        undo: true,
-      });
+
+      if (changed) {
+        pushUndo();
+        addMessage({
+          role: "assistant",
+          text: "Wording enhanced.",
+          type: "success",
+          undo: true,
+        });
+      } else {
+        addMessage({
+          role: "assistant",
+          text: "No visible wording change was produced. Try a more specific instruction.",
+          type: "error",
+        });
+      }
     } else {
-      const classified = classifyError(result.error);
+      const classified = classifyError(result.error, activeProvider.label);
       setActionError(
         result.raw ? { error: result.error, raw: result.raw } : result.error,
       );
@@ -534,7 +630,7 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
     if (actionError === "MISSING_KEY") {
       return (
         <div className="px-3 py-2.5 mx-3 mt-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs flex items-center gap-1.5">
-          Add your Groq API key in{" "}
+          Add your {activeProvider.label} API key in{" "}
           <button
             type="button"
             className="bg-none border-none underline text-primary cursor-pointer text-sm font-semibold p-0 hover:text-primary/80"
@@ -572,7 +668,7 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
             {!hasKey && (
               <div className="ai-no-key">
                 <p className="text-sm text-on-surface-variant text-center max-w-[220px] leading-relaxed">
-                  Add your Groq API key in{" "}
+                  Add your {activeProvider.label} API key in{" "}
                   <button
                     type="button"
                     className="bg-none border-none underline text-primary cursor-pointer text-sm font-semibold p-0 hover:text-primary/80"
@@ -580,7 +676,7 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
                   >
                     Settings
                   </button>{" "}
-                  to enable the AI assistant.
+                  to enable the {activeProvider.label} assistant.
                 </p>
               </div>
             )}
@@ -630,6 +726,7 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
                 handleAtsOptimize={handleAtsOptimize}
                 atsLoading={atsLoading}
                 atsResult={atsResult}
+                responses={sectionResponses.job}
               />
             )}
 
@@ -638,6 +735,7 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
                 handleGeneralAtsCheck={handleGeneralAtsCheck}
                 generalAtsLoading={generalAtsLoading}
                 generalAtsResult={generalAtsResult}
+                responses={sectionResponses.ats}
               />
             )}
 
@@ -650,6 +748,8 @@ Respond with ONLY a raw JSON object, no markdown fences, no explanation, matchin
                 hasKey={hasKey}
                 setActionError={setActionError}
                 setShowSettings={setShowSettings}
+                responses={sectionResponses.grammar}
+                pushSectionResponse={pushSectionResponse}
               />
             )}
           </div>

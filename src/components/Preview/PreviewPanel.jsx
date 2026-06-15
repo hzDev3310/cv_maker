@@ -2,8 +2,9 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { generateBlocks, paginate } from '../../utils/paginator';
 import CVPage from './CVPage';
 import BlockRenderer from './BlockRenderer';
+import { Button } from "@/components/ui/button";
 
-export default function PreviewPanel({ cvData, locale }) {
+export default function PreviewPanel({ cvData, locale, onUndo, onRedo, canUndo, canRedo }) {
   const measureRef = useRef(null);
   const [pages, setPages] = useState([]);
 
@@ -64,6 +65,30 @@ export default function PreviewPanel({ cvData, locale }) {
 
   return (
     <>
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-3 px-5 py-3 border-b border-outline-variant bg-surface-dim/95 backdrop-blur">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-on-surface">Preview</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onUndo}
+            disabled={!canUndo}
+          >
+            Back
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRedo}
+            disabled={!canRedo}
+          >
+            Forward
+          </Button>
+        </div>
+      </div>
+
       <div ref={measureRef} className="measure-container" aria-hidden="true">
         {allItems.map((b) => (
           <BlockRenderer key={b.key} block={b} />

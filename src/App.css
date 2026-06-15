@@ -124,8 +124,8 @@
 }
 .cv-section-rule {
     border: none;
-    border-top: 1px solid #222;
-    margin: 2px 0 8px;
+    border-top: 1px solid rgba(34, 34, 34, 0.55);
+    margin: 4px 0 10px;
 }
 .cv-summary {
     margin: 0;
@@ -316,6 +316,10 @@
         overflow: visible;
         padding: 15mm 15mm 20mm;
         margin: 0;
+    }
+
+    .cv-section-rule {
+        border-top-color: rgba(34, 34, 34, 0.45);
     }
 }
 
